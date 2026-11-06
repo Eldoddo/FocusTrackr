@@ -25,9 +25,9 @@ function mapToDb(task) {
 export async function fetchTasks() {
   const { data, error } = await supabase
     .from('tasks_db')
-    .select(`*, categories(name, colour, icon), subcategories(name)`)
+    .select('*')
     .order('done', { ascending: true })
-    .order('score', { ascending: false, nullsFirst: false });
+    .order('created_at', { ascending: false });
   if (error) throw error;
   return data.map(mapFromDb);
 }
@@ -40,6 +40,7 @@ export async function createTask(task) {
   const { data, error } = await supabase
     .from('tasks_db')
     .insert([mapToDb(task)])
+    .select()
     .single();
   if (error) throw error;
   return mapFromDb(data);
@@ -50,6 +51,7 @@ export async function updateTask(id, changes) {
     .from('tasks_db')
     .update(mapToDb(changes))
     .eq('id', id)
+    .select()
     .single();
   if (error) throw error;
   return mapFromDb(data);
