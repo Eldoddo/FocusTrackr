@@ -1,31 +1,63 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity,
-  TextInput, StyleSheet, KeyboardAvoidingView, Platform,
+  TextInput, StyleSheet, KeyboardAvoidingView, Platform, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  fetchTasks, createTask, updateTask, deleteTask as removeTask,
+} from '../services/taskService';
+
+function showError(action, err) {
+  console.error(`Failed to ${action}:`, err);
+  Alert.alert(`Couldn't ${action}`, err?.message ?? String(err));
+}
 
 export default function TaskScreen() {
   const [tasks, setTasks] = useState([]);
   const [input, setInput] = useState('');
 
-  const addTask = () => {
-    if (!input.trim()) return;
-    setTasks((prev) => [
-      { id: Date.now().toString(), name: input.trim(), done: false },
-      ...prev,
-    ]);
+  useEffect(() => {
+    fetchTasks()
+      .then(setTasks)
+      .catch((err) => showError('load tasks', err));
+  }, []);
+
+  const addTask = async () => {
+    const name = input.trim();
+    if (!name) return;
     setInput('');
+    try {
+      const saved = await createTask({ name, done: false });
+      setTasks((prev) => [saved, ...prev]);
+    } catch (err) {
+      setInput(name);
+      showError('save task', err);
+    }
   };
 
-  const toggleTask = (id) => {
-    setTasks((prev) =>
-      prev.map((t) => t.id === id ? { ...t, done: !t.done } : t)
-    );
+  const toggleTask = async (id) => {
+    const task = tasks.find((t) => t.id === id);
+    if (!task) return;
+    const done = !task.done;
+    try {
+      const saved = await updateTask(id, {
+        done,
+        doneAt: done ? new Date().toISOString() : null,
+      });
+      setTasks((prev) => prev.map((t) => (t.id === id ? saved : t)));
+    } catch (err) {
+      showError('update task', err);
+    }
   };
 
-  const deleteTask = (id) => {
-    setTasks((prev) => prev.filter((t) => t.id !== id));
+  const deleteTask = async (id) => {
+    try {
+      await removeTask(id);
+      setTasks((prev) => prev.filter((t) => t.id !== id));
+    } catch (err) {
+      showError('delete task', err);
+    }
   };
 
   const open = tasks.filter((t) => !t.done);

@@ -1,4 +1,4 @@
-import TaskScreen from '../screens/TaskScreen';
+import TaskScreen from '../src/screens/TaskScreen';
 
 export default function Index() {
   return <TaskScreen />;
