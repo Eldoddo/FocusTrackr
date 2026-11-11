@@ -4,9 +4,10 @@ import {
   TextInput, StyleSheet, KeyboardAvoidingView, Platform, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import {
-  fetchTasks, createTask, updateTask, deleteTask as removeTask,
-} from '../services/taskService';
+import {fetchTasks, createTask, updateTask, deleteTask as removeTask,} from '../services/taskService';
+import {fetchCategories, createCategory, createSubcategory,} from '../services/categoryService';
+import CategoryPicker from '../components/CategoryPicker';
+
 
 function showError(action, err) {
   console.error(`Failed to ${action}:`, err);
@@ -16,11 +17,17 @@ function showError(action, err) {
 export default function TaskScreen() {
   const [tasks, setTasks] = useState([]);
   const [input, setInput] = useState('');
+  const [categories, setCategories] = useState([]);
+  const [categoryId, setCategoryId] = useState(null);
+  const [subcategoryId, setSubcategoryId] = useState(null);
 
   useEffect(() => {
     fetchTasks()
       .then(setTasks)
       .catch((err) => showError('load tasks', err));
+      fetchCategories()
+      .then(setCategories)
+      .catch((err) => showError('load categories', err));
   }, []);
 
   const addTask = async () => {
@@ -28,8 +35,10 @@ export default function TaskScreen() {
     if (!name) return;
     setInput('');
     try {
-      const saved = await createTask({ name, done: false });
+      const saved = await createTask({ name, done: false, categoryId, subcategoryId});
       setTasks((prev) => [saved, ...prev]);
+      setCategoryId(null);
+      setSubcategoryId(null);
     } catch (err) {
       setInput(name);
       showError('save task', err);
@@ -60,6 +69,52 @@ export default function TaskScreen() {
     }
   };
 
+  const selectCategory = (id) => {
+    setCategoryId((current) => (current === id ? null : id));
+    setSubcategoryId(null);
+  };
+
+  const selectSubcategory = (id) => {
+    setSubcategoryId((current) => (current === id ? null : id));
+  };
+
+  const addCategory = async (name) => {
+    try {
+      const saved = await createCategory(name);
+      setCategories((prev) =>
+        [...prev, saved].sort((a, b) => a.name.localeCompare(b.name))
+      );
+      setCategoryId(saved.id);
+      setSubcategoryId(null);
+    } catch (err) {
+      showError('create category', err);
+    }
+  };
+
+  const addSubcategory = async (name) => {
+    if (!categoryId) return;
+    try {
+      const saved = await createSubcategory(categoryId, name);
+      setCategories((prev) =>
+        prev.map((c) =>
+          c.id === categoryId
+            ? { ...c, subcategories: [...c.subcategories, saved] }
+            : c
+        )
+      );
+      setSubcategoryId(saved.id);
+    } catch (err) {
+      showError('create subcategory', err);
+    }
+  };
+
+  const labelFor = (task) => {
+    const category = categories.find((c) => c.id === task.categoryId);
+    if (!category) return null;
+    const sub = category.subcategories.find((s) => s.id === task.subcategoryId);
+    return sub ? `${category.name} › ${sub.name}` : category.name;
+  };
+ 
   const open = tasks.filter((t) => !t.done);
   const done = tasks.filter((t) => t.done);
 
@@ -90,7 +145,16 @@ export default function TaskScreen() {
             <Text style={styles.addBtnText}>+</Text>
           </TouchableOpacity>
         </View>
-
+        {/* Category picker */}
+        <CategoryPicker
+          categories={categories}
+          categoryId={categoryId}
+          subcategoryId={subcategoryId}
+          onSelectCategory={selectCategory}
+          onSelectSubcategory={selectSubcategory}
+          onCreateCategory={addCategory}
+          onCreateSubcategory={addSubcategory}
+        />
         {/* Task list */}
         <FlatList
           data={tasks}
@@ -113,9 +177,14 @@ export default function TaskScreen() {
               </TouchableOpacity>
 
               {/* Name */}
-              <Text style={[styles.taskName, item.done && styles.taskNameDone]}>
-                {item.name}
-              </Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.taskName, item.done && styles.taskNameDone]}>
+                  {item.name}
+                </Text>
+                {labelFor(item) && (
+                  <Text style={styles.taskLabel}>{labelFor(item)}</Text>
+                )}
+              </View>
 
               {/* Delete */}
               <TouchableOpacity onPress={() => deleteTask(item.id)}>
@@ -144,6 +213,7 @@ const styles = StyleSheet.create({
   checkDone: { backgroundColor: '#1D9E75', borderColor: '#1D9E75' },
   checkMark: { color: '#fff', fontSize: 13, fontWeight: '700' },
   taskName: { flex: 1, fontSize: 15, color: '#1A1825' },
+  taskLabel: { fontSize: 12, color: '#888799', marginTop: 2 },
   taskNameDone: { textDecorationLine: 'line-through', color: '#B4B2C8' },
   deleteBtn: { fontSize: 14, color: '#B4B2C8', paddingHorizontal: 4 },
   sep: { height: 0.5, backgroundColor: '#E8E6F0', marginLeft: 52 },

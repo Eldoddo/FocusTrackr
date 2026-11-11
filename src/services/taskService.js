@@ -8,6 +8,8 @@ export function mapFromDb(row) {
     name: row.name,
     done: row.done,
     doneAt: row.done_at,
+    categoryId: row.category_id,
+    subcategoryId: row.subcategory_id,
     createdAt: row.created_at,
   };
 }
@@ -17,6 +19,8 @@ function mapToDb(task) {
   if (task.name              !== undefined) row.name              = task.name;
   if (task.done              !== undefined) row.done              = task.done;
   if (task.doneAt            !== undefined) row.done_at           = task.doneAt;
+  if (task.categoryId        !== undefined) row.category_id       = task.categoryId;
+  if (task.subcategoryId     !== undefined) row.subcategory_id    = task.subcategoryId;
   return row;
 }
 
